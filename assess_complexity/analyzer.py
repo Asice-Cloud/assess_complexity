@@ -1,4 +1,7 @@
 from clang import cindex
+import os
+import ctypes.util
+import subprocess
 from collections import defaultdict
 
 
@@ -84,6 +87,63 @@ def analyze_file(path, clang_args=None):
     """
     if clang_args is None:
         clang_args = ["-std=c11"]
+
+    # Ensure libclang can be found by clang.cindex by trying several strategies
+    def _configure_libclang():
+        # If caller provided an explicit path via env, prefer it
+        libfile = os.environ.get('LIBCLANG_FILE') or os.environ.get('LIBCLANG_PATH')
+        if libfile:
+            try:
+                cindex.Config.set_library_file(libfile)
+                return True
+            except Exception:
+                pass
+
+        # Try ctypes.find_library
+        try:
+            lib = ctypes.util.find_library('clang')
+            if lib:
+                try:
+                    cindex.Config.set_library_file(lib)
+                    return True
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Try ldconfig lookup
+        try:
+            out = subprocess.check_output(['ldconfig', '-p'], stderr=subprocess.DEVNULL).decode()
+            for line in out.splitlines():
+                if 'libclang' in line:
+                    parts = line.split()
+                    candidate = parts[-1]
+                    if os.path.exists(candidate):
+                        try:
+                            cindex.Config.set_library_file(candidate)
+                            return True
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        # Common fallback locations
+        candidates = [
+            '/usr/lib/libclang.so',
+            '/usr/lib/x86_64-linux-gnu/libclang.so',
+            '/usr/lib/libclang.so.1',
+            '/usr/local/lib/libclang.so',
+        ]
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                try:
+                    cindex.Config.set_library_file(candidate)
+                    return True
+                except Exception:
+                    pass
+        return False
+
+    _configure_libclang()
 
     index = cindex.Index.create()
     tu = index.parse(path, args=clang_args)
