@@ -1,0 +1,119 @@
+Metadata-Version: 2.4
+Name: assess-complexity
+Version: 0.1.0
+Summary: Heuristic complexity estimator for C/C++ using libclang
+Author-email: Your Name <you@example.com>
+License: MIT
+Keywords: complexity,static-analysis,clang
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# assess-complexity
+
+Heuristic static complexity estimator for C/C++ source code using libclang.
+
+This repository provides a small Python package that parses C/C++ source files with
+`libclang` (via `clang.cindex`) and reports a heuristic Big-O complexity estimate
+for each function based on loop nesting, recursion, and interprocedural propagation.
+
+Features
+- Heuristic detection of loop nesting and recursion.
+- Simple interprocedural propagation: callee polynomial exponents add when called
+	inside loops; exponential recursion is propagated upstream.
+- CLI with human-readable table output and JSON output for automation.
+
+Requirements
+- Python 3.8+
+- System `clang`/`libclang` installed and accessible (the package uses `clang.cindex`).
+
+Quick start
+
+Install development requirements (optional):
+
+```bash
+python3 -m pip install --user -r requirements-dev.txt
+```
+
+Run the included example:
+
+```bash
+python3 run_example.py
+```
+
+Or use the CLI module to analyze a file and see a table:
+
+```bash
+python3 -m assess_complexity.cli examples/sample.c
+```
+
+To get JSON output:
+
+```bash
+python3 -m assess_complexity.cli --json examples/sample.c
+```
+
+Usage as a library
+
+```python
+from assess_complexity import analyze_file
+
+results = analyze_file('path/to/file.c')
+print(results)
+```
+
+Example output (table):
+
+Function | Complexity | Loops | Calls | Self | Callees
+---|---:|---:|---:|---:|---
+sum | O(n) | 1 | 0 | 0 | 
+
+Tests
+
+Run tests with `pytest`:
+
+```bash
+python3 -m pytest
+```
+
+Building and publishing (TestPyPI)
+
+1. Build source/wheel distributions:
+
+```bash
+python3 -m pip install --upgrade build twine
+python3 -m build
+```
+
+2. Check the artifacts:
+
+```bash
+python3 -m twine check dist/*
+```
+
+3. Upload to TestPyPI (you already registered):
+
+```bash
+python3 -m twine upload --repository testpypi dist/*
+```
+
+4. Install from TestPyPI to verify:
+
+```bash
+python3 -m venv venv-test
+source venv-test/bin/activate
+pip install --index-url https://test.pypi.org/simple/ assess-complexity
+```
+
+CI
+
+This repo includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs
+tests on push and on pull requests. Tagged commits starting with `v` will build and
+upload to TestPyPI using the `TESTPYPI_API_TOKEN` secret.
+
+Contributing
+
+Contributions are welcome. Please open issues or PRs for feature requests or bug fixes.
+
+License
+
+MIT License (see `LICENSE` if included)

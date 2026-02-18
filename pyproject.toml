@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61", "wheel", "build"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assess-complexity"
+version = "0.1.0"
+description = "Heuristic complexity estimator for C/C++ using libclang"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [ { name = "Your Name", email = "you@example.com" } ]
+dependencies = []
+keywords = ["complexity", "static-analysis", "clang"]
+license = { text = "MIT" }
