@@ -1,78 +1,44 @@
-name: Test & Publish
+name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  release:
-    types: [created]
-  push:
-    tags: [ 'v*' ]
+	push:
+		branches: [ main, master ]
+	pull_request:
+		branches: [ main, master ]
 
 jobs:
-  test:
-    name: Run tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install dev dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-      - name: Install libclang (system) and Python bindings
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev
-          python -m pip install clang
-      - name: Locate libclang and set LD_LIBRARY_PATH
-        run: |
-          lib=$(ldconfig -p | grep libclang | awk '{print $4; exit}' || true)
-          echo "found libclang: $lib"
-          if [ -n "$lib" ]; then
-            dir=$(dirname "$lib")
-            echo "LD_LIBRARY_PATH=$dir:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-            echo "LIBCLANG_FILE=$lib" >> $GITHUB_ENV
-            echo "Set LD_LIBRARY_PATH to $dir"
-          else
-            echo "libclang not found via ldconfig"
-          fi
-      - name: Install package
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-      - name: Debug install
-        run: |
-          python -V
-          pip --version
-          pip list
-          python -c "import sys,os; print('sys.path sample:', sys.path[:5]); print('LD_LIBRARY_PATH=', os.environ.get('LD_LIBRARY_PATH'))"
-          python -c "import importlib,os; importlib.invalidate_caches(); print('try import clang first:'); import clang.cindex; print('clang OK'); print('lib file candidate from env=', os.environ.get('LIBCLANG_FILE'))"
-          python -c "import importlib; importlib.invalidate_caches(); print('try import package:'); import assess_complexity; print('IMPORT_OK', assess_complexity.__file__)"
-      - name: Run tests
-        run: pytest -q
+	test:
+		runs-on: ubuntu-latest
+		strategy:
+			matrix:
+				python-version: [3.10, 3.11]
+		steps:
+			- uses: actions/checkout@v4
 
-  publish-testpypi:
-    name: Build and publish to TestPyPI
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install build tools
-        run: python -m pip install --upgrade pip build twine
-      - name: Build distributions
-        run: python -m build
-      - name: Publish to TestPyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
-        run: python -m twine upload --repository testpypi dist/*
+			- name: Set up Python
+				uses: actions/setup-python@v4
+				with:
+					python-version: ${{ matrix.python-version }}
+
+			- name: Cache pip
+				uses: actions/cache@v4
+				with:
+					path: ~/.cache/pip
+					key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+					restore-keys: |
+						${{ runner.os }}-pip-
+
+			- name: Install dependencies
+				run: |
+					python -m pip install --upgrade pip
+					if [ -f requirements-dev.txt ]; then
+						pip install -r requirements-dev.txt
+					elif [ -f requirements.txt ]; then
+						pip install -r requirements.txt
+					fi
+
+			- name: Run tests
+				run: |
+					pip install pytest || true
+					pytest -q
+
